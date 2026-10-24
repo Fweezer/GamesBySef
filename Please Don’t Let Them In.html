@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Please Don’t Let Them In</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&display=swap">
+<style>
+:root{--ink:#d8cbb8;--mut:#8a7c6c;--acc:#9c2218;color-scheme:dark;box-sizing:border-box}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:'Special Elite','Courier New',monospace;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.o{position:fixed;inset:0;pointer-events:none}
+#vig{z-index:2;background:radial-gradient(ellipse at 50% 45%,transparent 30%,#000 108%)}
+#peep{z-index:2;display:none;background:radial-gradient(circle at 50% 50%,transparent min(36vh,36vw),#000 min(38vh,38vw))}
+body.peep #peep{display:block}body.peep #vig{display:none}
+#grain{z-index:3;opacity:.13;mix-blend-mode:overlay;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");animation:g .5s steps(4) infinite}
+@keyframes g{0%{background-position:0 0}25%{background-position:-40px 30px}50%{background-position:30px -50px}75%{background-position:-20px -20px}}
+#fade{z-index:4;background:#000;opacity:0}
+#top{position:fixed;left:0;right:0;top:0;z-index:6;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 0;display:flex;justify-content:space-between;color:var(--mut);font-size:14px;pointer-events:none}
+#mute{position:fixed;right:10px;top:calc(env(safe-area-inset-top,0px) + 30px);z-index:8;font-size:13px;padding:4px 8px}
+#hud{position:fixed;left:12px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:6;width:min(310px,80vw);font-size:14px}
+#sub{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);z-index:6;text-align:center;padding:0 14px;font-size:18px;text-shadow:0 0 6px #000,0 0 12px #000;pointer-events:none}
+.b{position:fixed;display:none;z-index:3;max-width:230px;background:#d8cbb8ee;color:#1a1210;border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.35;pointer-events:none}
+#menu{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.78);text-align:center;padding:20px}
+#menu.on{display:flex}
+h1{font-family:'Creepster','Georgia',serif;font-weight:400;letter-spacing:4px;font-size:46px;margin:0 0 12px;color:#c9b9a2;text-shadow:0 0 18px #7a0d06}
+.mut{color:var(--mut)}
+button{font:inherit;color:var(--ink);background:#120d0c;border:1px solid #4a3d36;border-radius:3px;padding:9px 12px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.35}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;margin-top:12px}
+#act{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:6;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:0 10px}
+#hud button{display:block;width:100%;text-align:left;margin:4px 0;background:#120d0ccc}
+#typ{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:7;display:none;justify-content:center}#typ.on{display:flex}
+#ti{width:min(520px,90vw);background:#120d0c;color:var(--ink);border:1px solid var(--acc);padding:10px;font:inherit}
+#pop{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;font-family:'Creepster',Georgia,serif;font-size:min(14vw,92px);letter-spacing:6px;color:#c9b9a2;text-shadow:0 0 22px #7a0d06;background:rgba(0,0,0,.88);opacity:0;pointer-events:none;transition:opacity .7s}#pop.on{opacity:1}
+#board{position:fixed;right:10px;top:calc(env(safe-area-inset-top,0px) + 62px);z-index:6;font-size:12px;text-align:right;color:var(--mut);max-width:220px;pointer-events:none}
+</style></head><body>
+<canvas id="c"></canvas><div class="o" id="vig"></div><div class="o" id="peep"></div><div class="o" id="grain"></div><div class="o" id="fade"></div>
+<div id="top"></div><button id="mute">🔊 (M)</button><div id="hud"></div><div id="sub"></div><div id="act"></div><div id="typ"><input id="ti" maxlength="140" placeholder="Ask them anything… (Enter to send, Esc to cancel)" autocomplete="off"></div><div id="pop"></div><div id="board"></div><div class="b" id="bub"></div><div class="b" id="rb"></div>
+<div id="menu"><div id="mi"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i),pick=a=>a[Math.random()*a.length|0],shuf=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=x=>x<0?0:x>1?1:x*x*(3-2*x);
+let S={state:'menu',strikes:0,night:0},P=null,AN=null,EX=[],G=[],AC=null,voiceOn=true,yaw=0,pitch=0,t0=0,puffs=[];const keys={};
+// ---------- data
+const SIGNS={blink:'they never blink',shadow:'they cast no shadow',breath:'their breath makes no fog in the cold',teeth:'their teeth are perfect and white',flicker:'the lights flicker when they are near',hands:'their hands are gray and too long',still:'they stand perfectly still, never swaying',grin:'their smile is too wide',voice:'sometimes their voice sounds wrong',tilt:'their head sits at an odd angle',eyes:'their eyes are slightly too large'};
+const NS=[['blink','shadow','breath'],['blink','shadow','breath','teeth','flicker'],['blink','shadow','breath','teeth','flicker','hands','still'],['blink','shadow','breath','teeth','flicker','hands','still','grin','voice'],['blink','shadow','breath','teeth','flicker','hands','still','grin','voice','tilt','eyes']];
+const PLEAS=['Please, it’s freezing out here.','I’ve been walking all night. Open the door.','They’re right behind me. Please hurry!','It’s me, your neighbor. You know me.','I only need somewhere to sleep until morning.','Hello? Is anyone home? Please!'];
+const SA_H=['Wait, please! I’ll freeze out here!','You can’t just leave me out here!','Please… I’m a real person!','Don’t do this. Please.'];
+const SA_V=['That is alright. We will wait.','Of course. Of course. We will be back.','Mm. A pity. Goodnight.','Another night, then.'];
+const OPEN_H=['Thank you. Thank you so much.','Oh, bless you. Thank you.','God, finally. Thank you.'];
+const OPEN_V=['Thank you for inviting me in.','How kind. How very kind.','You have a lovely home.'];
+const CHK={teeth:{h:['Fine. Look. Happy?','Ugh, okay. Is this necessary?'],v:['Of course. Look closely.','Like this?']},hands:{h:['Here. They’re freezing.','See? Shaking.'],v:['Of course. Take a good look.','Here you go.']},turn:{h:['Okay… like this?','This is humiliating.'],v:['Of course. All the way around.','As you wish.']}};
+const Q={
+where:{q:'Where are you coming from?',h:['I walked up from {town}. My car died on the highway.','From {town}. Everything there is boarded up now.','{town}. I’ve been on foot since sunset.'],v:['From {town2}. Or {town}. The roads all look the same.','From out there. The long road.','{town}. Yes. I was in {town}.']},
+work:{q:'What do you do for a living?',h:['I’m a {job}. Was, anyway.','{job}. Eleven years now.','I work as a {job}, if there’s still work.'],v:['I am a… {job}. That is what people are.','{job2}. No. {job}. Why do you ask?','Work. I do the work.']},
+kin:{q:'Is anyone with you?',h:['My {kin}. We got separated in the trees.','Just my {pet}. Poor thing is still out there.','No. Everyone I knew is gone.'],v:['Everyone. They’re right behind me.','My {kin}. Standing very close to me.','No one. Only me. Only me.']},
+food:{q:'When did you last eat?',h:['Half a sandwich, hours ago.','Yesterday. Canned peaches.','I can’t even remember. I’m starving.'],v:['I ate. It was warm.','I am not hungry. I mean, I’m very hungry.','Recently. Something soft.']},
+cold:{q:'Are you cold?',h:['Freezing. I can’t feel my fingers.','Yes! Please, just let me in.','So cold my teeth are chattering.'],v:['Yes. Very cold. That is what you say.','Cold. Yes. It is cold.','Not at all. I mean, yes, freezing.']},
+home:{q:'Where do you live?',h:['A yellow house on Pine Street. Green door.','An apartment above the hardware shop in {town}.','A farmhouse. Well, it was.'],v:['A house like this one. Exactly like this one.','In {town2}. In {town}. In a house.','Where it’s warm. Let me see yours.']},
+name:{q:'Spell your name for me.',h:['{spell}. Sorry, I’m shaking.','It’s {spell}.'],v:['{spell2}. Was that right?','{spell}. Or {spell2}. Whichever you like.']},
+day:{q:'What day is it?',h:['Tuesday? Maybe Wednesday. I’ve lost track.','Thursday, I think. Why?','Tuesday. Please, it’s freezing.'],v:['Today.','It is the day. The one that is happening.','Tuesday. Or Friday. The days are the same.']},
+pet:{q:'Do you have a pet?',h:['A dog named {petn}. I hope he’s okay.','A cat, {petn}. She stayed behind.','No pets. Never had the time.'],v:['A dog named {petn}. Or a cat. One of those.','I had one. It was loud.','What is a pet? I mean, yes. Yes, I have one.']},
+want:{q:'What do you want from me?',h:['All I need is {want}.','I just want {want}. That’s all.','Please. {want}. That’s all I’m asking.'],v:['I want what you want. {want}.','{want}. Is that the right answer?','To come inside. {want}, yes.']}};
+const fill=(p,s)=>s.replace(/\{(\w+)\}/g,(m,k)=>p.v&&p.st[k+'2']&&Math.random()<.35?p.st[k+'2']:p.st[k]);
+const OBS=[[-3.1,-2.1,1.15,1.85],[-1.72,-1.48,.38,.62],[3.5,4.9,.45,.95],[-5.6,-5,.4,1],[-6,-1.2,3.3,3.5],[1.2,6,3.3,3.5],[-6,-1.2,8.1,8.3],[1.2,6,8.1,8.3],[-1.5,-1.3,8.2,10.2],[-1.5,-1.3,11.6,13.4],[2.2,3.2,3.85,6.15],[5,6,3.9,6.1],[-3.7,-2.8,4.75,5.65],[-3.5,-2.9,6,6.6],[-5.9,-5.4,6.05,6.55],[-5.6,-5,7.3,7.9],[1.4,3.4,8.85,11.6],[.3,1.2,12.65,13.3],[1.5,5.9,12.65,13.3],[5.5,6,9.1,10.9],[5.1,5.7,11.1,11.7],[-5.5,-3.7,10.6,13.2],[-3.55,-3.05,12.65,13.15],[-5.9,-5.3,8.7,10.1],[-2.1,-1.6,12,13.2]];
+const hit=(x,z)=>OBS.some(b=>x>b[0]-.25&&x<b[1]+.25&&z>b[2]-.25&&z<b[3]+.25);
+let SMP=null,ROOM=null;const ME='Survivor '+(100+Math.random()*900|0);
+// ---------- three.js scene
+const cv=$('c'),R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.shadowMap.enabled=true;R.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x030202);scene.fog=new THREE.Fog(0x030202,3,22);
+const cam=new THREE.PerspectiveCamera(60,1,.1,50);cam.rotation.order='YXZ';cam.position.set(0,1.6,.45);
+function size(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
+scene.add(new THREE.AmbientLight(0x1c1822,.9));
+const M=(c,r)=>new THREE.MeshStandardMaterial({color:c,roughness:r===undefined?.9:r});
+const box=(w,h,d,x,y,z,m,sh)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x,y,z);b.receiveShadow=!!sh;scene.add(b);return b};
+const cyl=(a,b,h,x,y,z,m,s)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(a,b,h,s||10),m);c.position.set(x,y,z);scene.add(c);return c};
+const dark=M(0x0b0b0b,1),wd=M(0x4a3020),wd2=M(0x2a1a10),wall=M(0x3a2d29,1),sidM=M(0x2a231e,1),gold=M(0xb08d57,.4),cream=M(0xb8ad96),stone=M(0x4b4640,1),red=M(0x5a2222),glow=new THREE.MeshBasicMaterial({color:0xffd9a0}),flameM=new THREE.MeshBasicMaterial({color:0xff7a1a});
+// lights
+const lamp=new THREE.SpotLight(0xffd9a0,1.8,16,.75,.5);lamp.position.set(1.2,3.1,-1.6);lamp.target.position.set(0,0,-3.4);lamp.castShadow=true;lamp.shadow.mapSize.set(1024,1024);scene.add(lamp,lamp.target);
+const L1=new THREE.PointLight(0xffc88a,.9,14);L1.position.set(0,3.2,3.5);const L2=new THREE.PointLight(0xffc88a,.7,14);L2.position.set(0,3.2,10);
+const fire=new THREE.PointLight(0xff7a30,1.3,9);fire.position.set(4.9,.9,5);const nl=new THREE.PointLight(0xffb060,.6,6);nl.position.set(-3.3,.95,12.5);scene.add(L1,L2,fire,nl);
+// outside
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),M(0x141c14,1));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+for(let i=0;i<34;i++){const x=(Math.random()-.5)*40;if(Math.abs(x)<2.5)continue;cyl(.14,.24,6,x,3,-7-Math.random()*16,M(0x0e0a08),6)}
+const deckM=M(0x3a2818),post=M(0x5a4a3a,.8),vb=(w,h,d,x,y,z,m)=>box(w,h,d,x,y,z,m,true);
+vb(8,.2,4.2,0,.1,-2.8,deckM);vb(2,.1,.5,0,.05,-5.15,deckM);vb(1.6,.02,9,0,.01,-10,M(0x3a3228,1));vb(8.6,.15,4.7,0,3.55,-2.7,M(0x120e0c,1));
+[-4,4].forEach(x=>[-4.8,-.9].forEach(z=>cyl(.1,.1,3.3,x,1.85,z,post,8)));
+[-4,4].forEach(x=>{vb(.1,.08,3.9,x,1.1,-2.85,post);for(let z=-1.3;z>-4.7;z-=.4)vb(.05,.8,.05,x,.6,z,post);const s=x<0?-1:1;vb(3,.08,.1,s*2.5,1.1,-4.8,post);for(let i=0;i<7;i++)vb(.05,.8,.05,s*(1.2+i*.4),.6,-4.8,post)});
+vb(1.2,.02,.8,0,.21,-1.4,M(0x2a1212,1));const lan=new THREE.Mesh(new THREE.BoxGeometry(.18,.28,.18),new THREE.MeshBasicMaterial({color:0xffc66b}));lan.position.set(1.2,3.15,-1.6);scene.add(lan);
+// house shell: x -6..6, z -.6..13.4. Rooms: hall, living room, kitchen/dining, bedroom
+const tex=(w,h,fn,rx,ry)=>{const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);return t};
+const floorT=tex(256,256,(g,w,h)=>{g.fillStyle='#2a1c12';g.fillRect(0,0,w,h);for(let i=0;i<8;i++){g.fillStyle='hsl(25,'+(25+Math.random()*12)+'%,'+(10+Math.random()*8)+'%)';g.fillRect(i*32+1,0,30,h)}g.fillStyle='#0c0705';for(let i=0;i<=8;i++)g.fillRect(i*32,0,2,h)},3,3.5);
+const flr=new THREE.Mesh(new THREE.PlaneGeometry(12,14),new THREE.MeshStandardMaterial({map:floorT,roughness:.9}));flr.rotation.x=-Math.PI/2;flr.position.set(0,.02,6.4);scene.add(flr);
+const W1=M(0x3a2d29,1),W2=M(0x2d3a35,1),W3=M(0x33283a,1),H=3.6;
+const wx=(x,z0,z1,m)=>box(.2,H,z1-z0,x,H/2,(z0+z1)/2,m),wz=(z,x0,x1,m)=>box(x1-x0,H,.2,(x0+x1)/2,H/2,z,m);
+box(5.45,3.6,.2,-3.275,1.8,-.6,sidM);box(5.45,3.6,.2,3.275,1.8,-.6,sidM);box(1.1,1.45,.2,0,2.875,-.6,sidM);
+wx(-6,-.6,8.2,W1);wx(-6,8.2,13.4,W3);wx(6,-.6,8.2,W1);wx(6,8.2,13.4,W2);wz(13.4,-6,-1.4,W3);wz(13.4,-1.4,6,W2);box(12.2,.2,14,0,3.6,6.4,M(0x1a1512,1));
+// interior partitions with doorways
+wz(3.4,-6,-1.2,W1);wz(3.4,1.2,6,W1);box(2.4,1.2,.2,0,3,3.4,W1);wz(8.2,-6,-1.2,W1);wz(8.2,1.2,6,W1);box(2.4,1.2,.2,0,3,8.2,W1);
+wx(-1.4,8.2,10.2,W3);wx(-1.4,11.6,13.4,W3);box(.2,1.2,1.4,-1.4,3,10.9,W3);
+[[-1.2,3.4],[1.2,3.4],[-1.2,8.2],[1.2,8.2]].forEach(a=>box(.14,2.4,.32,a[0],1.2,a[1],wd2));[10.2,11.6].forEach(z=>box(.32,2.4,.14,-1.4,1.2,z,wd2));
+[-5.88,5.88].forEach(x=>box(.05,.18,14,x,.09,6.4,wd2));box(12,.18,.05,0,.09,13.28,wd2);[1.6,5.8,10.8].forEach(z=>box(12,.2,.28,0,3.4,z,wd2));
+const L3=new THREE.PointLight(0xffc88a,.6,10);L3.position.set(0,3.2,5.8);scene.add(L3);L1.position.set(0,3.2,1.7);L2.position.set(0,3.2,10.4);
+// front door (hinged)
+const dg=new THREE.Group();dg.position.set(-.55,0,-.6);scene.add(dg);
+const door=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.15,.08),M(0x3a2214,.7));door.position.set(.55,1.075,0);dg.add(door);
+const knob=new THREE.Mesh(new THREE.SphereGeometry(.04,10,10),gold);knob.position.set(.95,1.05,.07);dg.add(knob);
+const ph=new THREE.Mesh(new THREE.CircleGeometry(.02,12),new THREE.MeshBasicMaterial({color:0}));ph.position.set(.55,1.62,.045);dg.add(ph);
+// ---- hall: radio table, coat rack, shoes, bench
+box(1,.07,.7,-2.6,.8,1.5,wd);[[-.45,-.3],[.45,-.3],[-.45,.3],[.45,.3]].forEach(a=>box(.06,.78,.06,-2.6+a[0],.39,1.5+a[1],wd2));
+box(.45,.28,.18,-2.6,.985,1.5,wd2);const gr=new THREE.Mesh(new THREE.PlaneGeometry(.22,.17),M(0x8a6b3a));gr.position.set(-2.37,.985,1.5);gr.rotation.y=Math.PI/2;scene.add(gr);cyl(.006,.006,.5,-2.7,1.25,1.55,gold,6).rotation.z=-.3;
+cyl(.04,.04,1.8,-1.6,.9,.5,wd2,8);box(.3,.8,.12,-1.6,1.2,.5,M(0x3a3a4a));box(.26,.7,.1,-1.45,1.25,.5,M(0x4a2a2a));[[.9,.7],[1.1,.8]].forEach(a=>box(.2,.08,.1,a[0],.06,a[1],M(0x1a1410)));box(1.4,.02,.9,0,.04,.9,M(0x2a1a14));
+box(1.4,.08,.5,4.2,.45,.7,wd);[-.6,.6].forEach(x=>box(.08,.42,.4,4.2+x,.21,.7,wd2));
+// ---- living room: sofa, rug, armchair, side table, fireplace
+const rugT=tex(128,128,(g,w,h)=>{g.fillStyle='#4a1a22';g.fillRect(0,0,w,h);g.strokeStyle='#b9a980';g.lineWidth=6;g.strokeRect(10,10,w-20,h-20);g.strokeStyle='#8a7440';g.lineWidth=3;g.strokeRect(26,26,w-52,h-52)},1,1);
+const rug=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3),new THREE.MeshStandardMaterial({map:rugT,roughness:1}));rug.rotation.x=-Math.PI/2;rug.position.set(3.4,.035,5.2);scene.add(rug);
+box(.9,.2,2.2,2.7,.1,5,wd2);box(.9,.4,2.2,2.7,.4,5,red);box(.22,.8,2.2,2.25,.8,5,red);[3.9,6.1].forEach(z=>box(.9,.65,.22,2.7,.48,z,red));[4.4,5.6].forEach(z=>box(.7,.14,.9,2.85,.67,z,M(0x6a2d2d)));
+const chair=M(0x4a3a2a);box(.8,.4,.8,-3.2,.35,5.2,chair);box(.2,.8,.8,-3.6,.8,5.2,chair);[4.85,5.55].forEach(z=>box(.8,.3,.15,-3.2,.55,z,chair));
+box(.5,.5,.5,-3.2,.25,6.3,wd);cyl(.1,.17,.24,-3.2,.78,6.3,glow,12);
+// fireplace (right wall): hearth, stone surround, firebox, logs and animated flames
+box(1,.08,1.9,5.45,.06,5,stone);[4.35,5.65].forEach(z=>box(.6,1.5,.4,5.65,.85,z,stone));box(.6,.3,1.7,5.65,1.75,5,stone);box(.7,.1,2,5.65,1.95,5,wd);box(.4,1.7,1.4,5.7,2.75,5,stone);
+box(.1,1.5,.9,5.87,.85,5,dark);box(.5,.04,.9,5.65,.12,5,dark);[5.55,5.75].forEach(x=>{const l=cyl(.07,.07,.8,x,.2,5,wd2,8);l.rotation.x=Math.PI/2});
+const flames=[[5.62,.3,4.92,.5],[5.7,.3,5.08,.62],[5.64,.3,5,.7]].map(a=>{const c=new THREE.Mesh(new THREE.ConeGeometry(.11,a[3],8),flameM);c.position.set(a[0],a[1]+a[3]/2,a[2]);scene.add(c);return c});fire.position.set(5.1,.8,5);
+[4.4,5.6].forEach(z=>cyl(.03,.03,.2,5.65,2.05,z,cream,8));
+// ---- kitchen and dining
+box(.9,1.9,.6,.75,.95,13,M(0xb8b4aa,.5));box(4.3,.9,.6,3.7,.45,13,wd2);box(4.4,.06,.7,3.7,.93,13,stone);box(4.3,.7,.35,3.7,2.4,13.12,wd);
+box(.7,.12,.45,2.2,.97,13,M(0x777b80,.3));box(.7,.04,.55,4.8,.97,13,dark);[[4.6,12.9],[5,12.9],[4.6,13.1],[5,13.1]].forEach(a=>cyl(.06,.06,.02,a[0],1,a[1],M(0x333333),8));[2.8,3.4].forEach(x=>cyl(.1,.1,.25,x,1.08,13,M(0x6a5a3a),10));cyl(.12,.16,.2,4,1.04,13,gold,10);
+box(1.8,.08,1,2.4,.8,10.2,wd);[[-.8,-.4],[.8,-.4],[-.8,.4],[.8,.4]].forEach(a=>box(.07,.78,.07,2.4+a[0],.39,10.2+a[1],wd2));
+[1.9,2.9].forEach(x=>{box(.5,.06,.5,x,.5,9.2,wd);box(.5,.6,.06,x,.85,8.95,wd);box(.5,.06,.5,x,.5,11.2,wd);box(.5,.6,.06,x,.85,11.45,wd)});
+cyl(.01,.01,.7,2.4,3.25,10.2,dark,6);cyl(.15,.3,.2,2.4,2.85,10.2,glow,14);[1.9,2.7].forEach(x=>{cyl(.03,.03,.16,x,.92,10.2,cream,8);const f=new THREE.Mesh(new THREE.SphereGeometry(.025,6,6),glow);f.position.set(x,1.03,10.2);scene.add(f)});
+const bookM=[0x6b2a2a,0x2f4a3a,0x3a3a5a,0x6a5a2a,0x4a3a30].map(c=>M(c));box(.06,2.4,1.7,5.9,1.2,10,wd2);[9.15,10.85].forEach(z=>box(.4,2.4,.06,5.75,1.2,z,wd));[.1,.7,1.3,1.9,2.4].forEach(y=>box(.4,.05,1.7,5.75,y,10,wd));[.1,.7,1.3,1.9].forEach(y=>{for(let z=9.3;z<10.8;z+=.1){const h=.28+Math.random()*.2;box(.26,h,.07,5.77,y+.025+h/2,z,pick(bookM))}});
+// ---- bedroom
+box(1.8,.28,2.5,-4.6,.2,11.9,wd2);box(1.7,.22,2.4,-4.6,.45,11.9,cream);box(1.74,.1,1.4,-4.6,.57,11.4,M(0x2a4038));box(1.8,.9,.1,-4.6,.75,13.25,wd);[-5,-4.2].forEach(x=>box(.6,.12,.4,x,.62,12.8,M(0xcfc8b4)));
+box(.5,.5,.5,-3.3,.25,12.9,wd);cyl(.1,.17,.24,-3.3,.78,12.9,glow,12);nl.position.set(-3.3,.95,12.5);box(.5,.9,1.4,-5.6,.45,9.4,wd);box(.5,2.1,1.2,-1.85,1.05,12.6,wd2);
+// ---- plants
+[[5.4,11.4],[-5.3,.7],[-5.3,7.6]].forEach(a=>{cyl(.2,.15,.35,a[0],.18,a[1],M(0x5a3a2a),10);const l=new THREE.Mesh(new THREE.SphereGeometry(.28,10,8),M(0x1f3a22));l.position.set(a[0],.6,a[1]);scene.add(l)});
+// ---- windows, pictures, clock
+const wnd=(x,z,s,boards)=>{const gp=new THREE.Group();gp.position.set(x,1.9,z);gp.rotation.y=s>0?Math.PI/2:-Math.PI/2;const nt=new THREE.Mesh(new THREE.PlaneGeometry(1.1,1.3),new THREE.MeshBasicMaterial({color:0x0a0f1c}));nt.position.z=.01;gp.add(nt);[[0,.7,1.3,.1],[0,-.7,1.3,.1],[-.6,0,.1,1.5],[.6,0,.1,1.5]].forEach(a=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a[2],a[3],.06),wd);m.position.set(a[0],a[1],.04);gp.add(m)});if(boards)[-.35,0,.35].forEach((y,i)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(1.4,.2,.05),wd2);b.position.set(0,y,.1);b.rotation.z=(i-1)*.08;gp.add(b)});else[-1,1].forEach(k=>{const c=new THREE.Mesh(new THREE.BoxGeometry(.3,1.7,.06),red);c.position.set(k*.68,-.1,.08);gp.add(c)});scene.add(gp)};
+wnd(-5.88,4.6,1,false);wnd(-5.88,9.2,1,true);wnd(5.88,7.1,-1,false);wnd(5.88,1.8,-1,true);
+const picT=(c1,c2,s)=>tex(128,96,(g,w,h)=>{const q=g.createLinearGradient(0,0,0,h);q.addColorStop(0,c1);q.addColorStop(1,c2);g.fillStyle=q;g.fillRect(0,0,w,h);g.fillStyle='#0c0a09';g.beginPath();g.moveTo(0,h);for(let x=0;x<=w;x+=8)g.lineTo(x,h*.6+Math.sin(x*.08+s)*14);g.lineTo(w,h);g.fill()},1,1);
+const pic=(x,y,z,w,h,ry,c1,c2,s)=>{const gp=new THREE.Group();gp.position.set(x,y,z);gp.rotation.y=ry;gp.add(new THREE.Mesh(new THREE.BoxGeometry(w+.12,h+.12,.05),wd2));const pl=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:picT(c1,c2,s),color:0x888888}));pl.position.z=.03;gp.add(pl);scene.add(gp)};
+pic(-5.86,2.2,1.6,.8,.6,Math.PI/2,'#5a3a2a','#b0906a',2);pic(-5.86,2.2,7.7,.6,.8,Math.PI/2,'#2a4a3a','#8aaa8a',3);pic(-4.6,2.5,13.27,.9,.6,Math.PI,'#2a3b55','#7a8a9a',1);pic(5.47,2.6,5,.8,.6,-Math.PI/2,'#3a2a4a','#9a8aaa',4);
+box(.5,2.2,.4,-5.65,1.1,6.3,wd2);const clkT=tex(64,64,g=>{g.fillStyle='#d8cbb8';g.beginPath();g.arc(32,32,28,0,7);g.fill();g.strokeStyle='#111';g.lineWidth=3;g.beginPath();g.moveTo(32,32);g.lineTo(32,12);g.moveTo(32,32);g.lineTo(46,38);g.stroke()},1,1);const clk=new THREE.Mesh(new THREE.PlaneGeometry(.35,.35),new THREE.MeshBasicMaterial({map:clkT,color:0x999999}));clk.position.set(-5.43,1.75,6.3);clk.rotation.y=Math.PI/2;scene.add(clk);cyl(.04,.04,.7,-5.43,.9,6.3,gold,8);
+// ---------- audio and speech
+const ac=()=>AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+function snd(f0,f1,d,v,ty){try{const a=ac(),o=a.createOscillator(),g=a.createGain(),n=a.currentTime;o.type=ty||'sine';o.frequency.setValueAtTime(f0,n);o.frequency.exponentialRampToValueAtTime(f1,n+d);g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(a.destination);o.start(n);o.stop(n+d)}catch(e){}}
+function deathSnd(){try{const a=ac(),n=a.currentTime,b=a.createBuffer(1,a.sampleRate*1.6,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2.5);const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(5000,n);f.frequency.exponentialRampToValueAtTime(120,n+1.3);const g=a.createGain();g.gain.value=1.3;s.connect(f);f.connect(g);g.connect(a.destination);s.start(n);snd(95,24,.9,1,'sine');snd(55,28,1.6,.6,'triangle')}catch(e){}}
+const entKnock=()=>{try{ac().resume()}catch(e){}[0,900,1800].forEach(ms=>setTimeout(()=>{snd(60,25,.5,1,'sine');snd(140,50,.25,.6,'triangle')},ms))};
+const knock=()=>{try{ac().resume()}catch(e){}[0,300,600].forEach(ms=>setTimeout(()=>{snd(190,70,.16,1,'triangle');snd(1100,260,.04,.4,'square')},ms))};
+const FEMR=/female|woman|zira|samantha|karen|victoria|susan|hazel|moira|tessa|fiona|allison|ava|serena|kate|jenny|aria|libby|sonia|natasha|catherine|linda|heather|emma|amy|joanna|salli|kimberly/i,MALR=/\bmale\b|david|mark|daniel|alex|fred|george|james|ryan|guy|thomas|oliver|rishi|ralph|richard|brian|eric|liam|christopher|matthew|joey|justin|kevin/i;
+function voiceFor(p){if(!window.speechSynthesis)return null;const vs=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en')),f=vs.filter(v=>FEMR.test(v.name)&&!MALR.test(v.name)),m=vs.filter(v=>MALR.test(v.name)&&!FEMR.test(v.name)),pl=p.fem?f:m,pool=pl.length?pl:vs;return pool.length?pool[p.vi%pool.length]:null}
+function speak(t,o){if(!voiceOn||!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t),vs=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en'));u.pitch=o.pitch||1;u.rate=o.rate||1;if(o.voice)u.voice=o.voice;else if(vs.length)u.voice=vs[(o.vi||0)%vs.length];if(u.voice)u.lang=u.voice.lang;clearTimeout(speak.t);speak.t=setTimeout(()=>speechSynthesis.speak(u),120)}
+function toggleVoice(){voiceOn=!voiceOn;$('mute').textContent=voiceOn?'🔊 (M)':'🔇 (M)';if(!voiceOn&&window.speechSynthesis)speechSynthesis.cancel()}
+setInterval(()=>{if(S.state==='play')snd(50+Math.random()*30,35,1.2,.12,'sawtooth')},23000);
+
+// ---------- helpers
+const later=(fn,ms)=>{const c=S;setTimeout(()=>{if(S===c)fn()},ms)};
+const show=(el,h)=>{el.innerHTML=h;el.dataset.on=h?1:''};
+const near=()=>cam.position.z<1.6&&Math.abs(cam.position.x)<1.4;
+const showScr=h=>{$('mi').innerHTML=h;$('menu').classList.add('on')},hideScreen=()=>$('menu').classList.remove('on');
+const topbar=()=>{$('top').innerHTML=S.state==='menu'?'':'<span>Night '+Math.min(S.night+1,5)+' of 5</span><span>Guilt '+S.strikes+'/3</span>';pres()};
+function flash(c,o){const f=$('fade');f.style.transition='none';f.style.background=c;f.style.opacity=o}
+function talk(p,text,cb){clearTimeout(S.tt);S.tk=1;$('sub').innerHTML='<b>'+p.n+':</b> “'+text+'”';show($('bub'),'<b>'+p.n+'</b><br>“'+text+'”');speak(text,p.kind==='ent'?{pitch:.2,rate:.55,voice:voiceFor(p)}:p.kind==='haz'?{pitch:.7,rate:.85,voice:voiceFor(p)}:p.v&&p.sg.includes('voice')?{pitch:.4,rate:.7,voice:voiceFor(p)}:{pitch:p.pitch,rate:p.rate,voice:voiceFor(p)});const c=S;S.tt=setTimeout(()=>{if(S!==c)return;S.tk=0;$('sub').textContent='';show($('bub'),'');cb&&cb()},Math.max(1600,text.length*68))}
+// ---------- people
+
+const ROLES=[
+{k:'lost',want:'a place to sleep until morning',plea:['I’m lost. Please, just let me rest until morning.','Is this the road to town? I need somewhere to sleep.'],cl:[0x3b4a6b,0x55595c],acc:'pack',yes:['Thank you. I won’t be any trouble.'],no:['I understand… I’ll keep walking.','Please, just a corner to sleep in!']},
+{k:'hurt',want:'bandages and someone to look at my injury',plea:['I’m hurt! I need help, please!','My leg… I can’t go any further. Please open up.'],cl:[0x5b3a3a,0x3f5a46],acc:'bandage',yes:['Thank you. Please hurry, it hurts.'],no:['Please! I’ll bleed out here!']},
+{k:'parent',want:'shelter for my little one',plea:['Please, my little one is freezing. Open the door!','I have a child with me. Please!'],cl:[0x3f5a46,0x4a4a6a],acc:'child',yes:['Thank you. Thank you for my child.'],no:['Please, she’s just a child!','Think of the little one!']},
+{k:'trader',want:'to trade supplies for shelter',plea:['I have food and batteries. Let me in and we can trade.','Canned goods for a warm room. Fair deal?'],cl:[0x6a5a3a,0x3a3a3a],acc:'pack',hat:1,yes:['Here, take some of these supplies. Deal.'],no:['Your loss. Good supplies don’t grow on trees.']},
+{k:'priest',want:'to bless this house and pray',plea:['Peace be with you. May I pray in your home?','I only wish to bless your house.'],cl:[0x151515],acc:'cross',yes:['Bless you, and this house.'],no:['Then may you find peace. I’ll pray for you.']},
+{k:'soldier',want:'to inspect your house and take supplies',plea:['Open up. Military requisition.','This is a mandatory checkpoint. Open the door.'],cl:[0x4a5a3a],acc:'helmet',yes:['Cooperation noted. Step aside.'],no:['Noted. You will regret this.','This will be on your record.']},
+{k:'child',want:'to find my mom and dad',plea:['I can’t find my mom… can I come in?','Mister? Please, I’m scared.'],cl:[0x6a3a5a,0x3a6a8a],scale:.7,yes:['Thank you! Is my mom here?'],no:['But… I’m scared… please…','Mister, don’t go…']},
+{k:'elder',want:'to get home; I think I live here',plea:['Dearie, is this my house? I can’t remember…','Please, I think I live here.'],cl:[0x6a5a6a,0x5a6a5a],scale:.95,acc:'cane',yes:['Oh, thank you dearie. Is dinner ready?'],no:['But… this is my home…','Where do I go now?']},
+{k:'mail',want:'a signature for this package',plea:['Delivery for this address! Sign here, please.','Package for you. I need a signature.'],cl:[0x3a4a7a],acc:'box',hat:1,yes:['Thanks. Sign here and I’ll be off.'],no:['Fine. I’ll leave it on the step.']},
+{k:'neighbor',want:'to borrow some supplies',plea:['It’s me from next door. Could I borrow some matches?','Hey, neighbor. Got any water to spare?'],cl:[0x5a4a3a,0x3f5a46],hat:1,yes:['Thanks, neighbor. I owe you one.'],no:['Wow. Okay. Thanks a lot.','Some neighbor you are.']},
+{k:'tech',want:'to repair your radio',plea:['Radio repair. Your signal is failing, let me look.','I can fix your radio, if you let me in.'],cl:[0x2a4a6a],acc:'tools',hat:1,yes:['Perfect. I’ll take a look at that radio.'],no:['Suit yourself. Good luck without a radio.']},
+{k:'doctor',want:'to treat the sick in this area',plea:['I’m a doctor. Is anyone in your house hurt or sick?','Doctor here. Let me check on your household.'],cl:[0xdcdcdc,0xcfd8dc],acc:['medbag'],yes:['Thank you. I’ll look after everyone.'],no:['If anyone gets sick, you know where to find me.']},
+{k:'musician',want:'a warm room, and I will play for you',plea:['I play guitar. A song for a warm room?','Please, let me play something for you. It’s so cold.'],cl:[0x6a3a2a,0x3a3a5a],acc:['case'],hat:1,yes:['Then let me play you something sweet.'],no:['Then I’ll play for the wind.']},
+{k:'runaway',want:'to hide from someone',plea:['Please, I’m hiding from someone. Let me in, quick.','Someone’s following me. Please!'],cl:[0x3a3a3a,0x4a2a2a],acc:['bigpack','hood'],yes:['Thank you. Shut the door, quick!'],no:['They’re coming… please…']},
+{k:'farmer',want:'to warn you about the fields',plea:['Neighbor! You shouldn’t stay here. The fields aren’t safe.','I come from the farm. We need to talk.'],cl:[0x5a4a2a,0x3a5a3a],acc:['pitch'],hat:'straw',yes:['Good. We have to talk about the fields.'],no:['Don’t say I didn’t warn you.']},
+{k:'journalist',want:'to interview you for my story',plea:['I’m with the Valley Courier. May I ask you a few questions?','Press! Just a short interview, please.'],cl:[0x6a5a4a,0x3a4a5a],acc:['camera'],yes:['Wonderful. Let’s start with your name.'],no:['No comment? Fine, no story then.']},
+{k:'police',want:'to ask about missing people',plea:['Police. We’re looking for missing persons. Open the door.','Officer here. Have you seen anyone unusual?'],cl:[0x1f2a4a],acc:['badge'],hat:'cap',yes:['Thank you. This won’t take long.'],no:['If you see anything, call us. If you can.']},
+{k:'hiker',want:'water and a map',plea:['Hiker here. I ran out of water. Can you spare some?','Could I fill my bottle? I’m exhausted.'],cl:[0x2a5a3a,0x6a4a2a],acc:['bigpack'],yes:['Thank you, you’re a lifesaver.'],no:['Okay. I’ll find a stream.']},
+{k:'survivalist',want:'to make sure you are not infected',plea:['Are you infected? Show me your hands first.','Stay calm. I need to check you for symptoms.'],cl:[0x3a4a3a],acc:['mask'],yes:['Fine. Keep your distance.'],no:['Stay away from me. All of you.']},
+{k:'beggar',want:'a bite to eat',plea:['Spare some food? Anything at all?','Please… I haven’t eaten in days.'],cl:[0x4a4036,0x3a3630],acc:['bowl'],yes:['God bless you. God bless you.'],no:['Please… just a crust…']},
+{k:'tourist',want:'directions to the Grand Hotel',plea:['Excuse me! Is this the way to the Grand Hotel?','Sorry to bother you, are the shops still open?'],cl:[0xc06a3a,0x3a8a8a],acc:['camera'],hat:'straw',yes:['Lovely home! Mind if I take a photo?'],no:['Oh. Is it always this unfriendly here?']},
+{k:'chef',want:'to cook a hot meal for the house',plea:['I’m a chef. Let me cook for you, I have ingredients.','Chef here. I just need a stove and a pot.'],cl:[0xdcdcdc],hat:'chef',yes:['Magnificent. Show me to your kitchen.'],no:['Pity. A hot meal would have been lovely.']},
+{k:'clown',want:'to cheer everyone up',plea:['Hello there! Want to hear a joke? It’s so cold!','Let me in, I’ll make everyone laugh!'],cl:[0x8a2a5a,0x2a6a8a],acc:['nose'],yes:['Ha ha! You won’t regret this.'],no:['No laughter tonight, then.']},
+{k:'blind',want:'someone to guide me home',plea:['Hello? I can’t see. Could you help me find my way?','Please… I can’t see anything. Is someone there?'],cl:[0x3a3a4a],acc:['cane','glasses'],yes:['Bless you. Thank you for your kindness.'],no:['Oh. I… understand. I’ll feel my way.']},
+{k:'hunter',want:'to warn you something is stalking the woods',plea:['I’m a hunter. Something’s out in the woods. Let me in.','There’s something out there. Open the door!'],cl:[0x4a3a22,0x3a4a2a],acc:['rifle','vest'],yes:['Good. Lock it behind me.'],no:['Then you’re on your own.']}];
+function nextRole(){let r,n=0;do{r=pick(ROLES)}while(S.rh&&S.rh.includes(r.k)&&++n<20);S.rh=(S.rh||[]).concat(r.k).slice(-5);return r}
+const L=(p,k)=>pick(p.v?(k==='yes'?OPEN_V:SA_V):(p.role&&p.role[k])||(k==='yes'?OPEN_H:SA_H));
+function dress(r,g,hg,skin){const A=[].concat(r.acc||[]),has=x=>A.includes(x),m=c=>M(c,.8),add=(o,x,y,z,t)=>{o.position.set(x,y,z);t.add(o);return o},bx=(w,h,d,c)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m(c)),cy=(a,b,h,c,n)=>new THREE.Mesh(new THREE.CylinderGeometry(a,b,h,n||8),m(c));
+ if(r.scale)g.scale.setScalar(r.scale);
+ if(has('pack')){add(bx(.3,.32,.16,0x4a3a2a),.42,.78,.22,g);add(bx(.06,.9,.03,0x2a2018),0,1.1,.36,g).rotation.z=.6}
+ if(has('bigpack')){add(bx(.34,.55,.28,0x3a4a2a),.52,.8,.05,g);add(bx(.06,.9,.03,0x2a2018),0,1.1,.36,g).rotation.z=-.6}
+ if(has('bandage')){add(cy(.235,.235,.08,0xe8e4d8,14),0,.33,0,hg);add(bx(.5,.12,.08,0xe8e4d8),0,1.2,.38,g).rotation.z=-.6}
+ if(has('cross')){add(new THREE.Mesh(new THREE.BoxGeometry(.04,.26,.02),gold),0,1.22,.43,g);add(new THREE.Mesh(new THREE.BoxGeometry(.16,.04,.02),gold),0,1.28,.43,g)}
+ if(has('helmet')||has('hood'))add(new THREE.Mesh(new THREE.SphereGeometry(.27,12,8,0,Math.PI*2,0,Math.PI/2),m(has('hood')?0x2a2a2a:0x4a5a3a)),0,.27,0,hg);
+ if(has('rifle')||has('helmet'))add(cy(.025,.025,1.1,0x111111,6),-.5,.95,.3,g).rotation.z=.35;
+ if(has('cane'))add(cy(.02,.02,.9,0x5a3a22,6),.52,.45,.25,g);
+ if(has('box')){add(bx(.4,.3,.4,0x9a7a50),0,1,.5,g);add(bx(.05,.31,.41,0xdcd8c8),0,1,.5,g)}
+ if(has('tools'))add(bx(.38,.22,.2,0x8a2a22),.5,.35,.25,g);
+ if(has('medbag')){add(bx(.36,.26,.16,0xe8e8e8),.5,.4,.25,g);add(bx(.05,.16,.02,0xaa1111),.5,.4,.34,g);add(bx(.16,.05,.02,0xaa1111),.5,.4,.34,g)}
+ if(has('case'))add(bx(.3,.9,.12,0x2a1a12),.55,.55,.2,g);
+ if(has('camera')){add(bx(.22,.14,.1,0x111111),0,1.15,.42,g);add(cy(.05,.05,.08,0x333333,10),0,1.15,.5,g).rotation.x=Math.PI/2}
+ if(has('glasses'))add(bx(.3,.07,.04,0x050505),0,.27,.215,hg);
+ if(has('nose')){add(new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),m(0xcc1111)),0,.2,.24,hg);[-1,1].forEach(k=>add(new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),m(0x2a8a3a)),k*.2,.33,0,hg))}
+ if(has('mask')){add(bx(.22,.2,.1,0x333333),0,.12,.23,hg);add(cy(.06,.08,.14,0x555555,8),0,.1,.3,hg).rotation.x=Math.PI/2}
+ if(has('pitch')){add(cy(.02,.02,1.4,0x5a3a22,6),-.55,.7,.25,g);add(bx(.25,.03,.03,0x888888),-.55,1.42,.25,g)}
+ if(has('vest'))add(bx(.72,.55,.05,0xd8601a),0,1.15,.42,g);
+ if(has('badge'))add(bx(.08,.1,.02,0xd9b84a),-.2,1.3,.43,g);
+ if(has('bowl'))add(cy(.12,.07,.07,0x6a5a4a,10),.45,.8,.38,g);
+ if(has('child')){const k=new THREE.Group();add(cy(.16,.2,.6,0x3a6a8a,10),0,.5,0,k);add(new THREE.Mesh(new THREE.SphereGeometry(.14,10,8),skin),0,1,0,k);add(k,.7,0,.15,g)}
+ const h=r.hat;if(h==='chef')add(cy(.2,.22,.35,0xf0f0f0,12),0,.5,0,hg);else if(h==='cap'){add(cy(.22,.22,.1,0x1f2a4a,12),0,.4,0,hg);add(bx(.3,.02,.15,0x111111),0,.36,.2,hg)}else if(h==='straw'){add(cy(.45,.45,.03,0xc9b46a,16),0,.42,0,hg);add(cy(.2,.22,.15,0xc9b46a,12),0,.5,0,hg)}else if(h){add(cy(.32,.32,.03,0x2a2220,14),0,.42,0,hg);add(cy(.2,.22,.2,0x2a2220,12),0,.52,0,hg)}}
+const TOWNS=['Millbrook','Harlow','Dunmere','Pinecrest','Ashford'],JOBS=['nurse','carpenter','teacher','mechanic','baker','farmhand'],KIN=['sister','brother','mother','cousin','father'],FEMN=['Mara','Jessa','Dee','Ines','Nora','Lena'],MALN=['Tom','Hale','Whit','Ray','Gus','Ellis'],PETN=['Biscuit','Moxie','Duke','Pepper'];
+function makePerson(v,sg,role){
+ const g=new THREE.Group(),has=k=>v&&sg.includes(k),sk=pick([0xd9b49a,0xa87454,0x7a5239,0xe8cbb4]),skin=M(sk,.8),cl=M(pick(role&&role.cl||[0x3b4a6b,0x5b3a3a,0x3f5a46,0x55595c]),.9);
+ const body=new THREE.Mesh(new THREE.CylinderGeometry(.34,.42,1.25,12),cl);body.position.y=.82;
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.23,16,12),skin);head.position.y=1.68;
+ const eyeM=new THREE.MeshBasicMaterial({color:0x050505}),eyes=[-1,1].map(s=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.035,8,8),eyeM);const big=has('eyes');e.scale.setScalar(big?1.7:1);e.position.set(s*(big?.1:.08),1.72,.2);return e});
+ const mouth=new THREE.Mesh(new THREE.BoxGeometry(.11,.02,.02),new THREE.MeshBasicMaterial({color:0x200606}));mouth.position.set(0,1.6,.215);mouth.scale.x=has('grin')?2.6:1;
+ const tg=new THREE.Group();tg.visible=false;tg.position.set(0,1.6,.222);
+ for(let i=0;i<8;i++){if(!has('teeth')&&i===5)continue;const b=new THREE.Mesh(new THREE.BoxGeometry(.02,has('teeth')?.04:.025+Math.random()*.02,.01),new THREE.MeshBasicMaterial({color:has('teeth')?0xffffff:pick([0xc9b98a,0xb5a577,0xd6c9a0])}));b.position.set((i-3.5)*.024,0,0);tg.add(b)}
+ const hg=new THREE.Group();hg.position.y=1.45;[head,mouth,tg,...eyes].forEach(o=>{o.position.y-=1.45;hg.add(o)});hg.rotation.z=has('tilt')?(Math.random()<.5?1:-1)*.38:(Math.random()-.5)*.1;
+ const al=.72+Math.random()*.08,hm=M(has('hands')?0x8a9399:sk,.8),arms=[-1,1].map(s=>{const pv=new THREE.Group();pv.position.set(s*.46,1.38,0);const a=new THREE.Mesh(new THREE.CylinderGeometry(.06,.05,al,8),cl);a.position.y=-al/2;const h=new THREE.Mesh(new THREE.SphereGeometry(.07,8,8),hm);h.position.y=-al-.02;if(has('hands'))h.scale.set(1,2.2,1.1);pv.add(a,h);g.add(pv);return pv});
+ g.add(body,hg);if(role)dress(role,g,hg,skin);g.traverse(o=>{if(o.isMesh)o.castShadow=!has('shadow')});
+ const fem=Math.random()<.5,nm=pick(fem?FEMN:MALN),tw=shuf(TOWNS),jb=shuf(JOBS),a=nm.split('');a[a.length-1]=pick('xzqk'.split(''));
+ const st={want:role?role.want:'a place to stay',town:tw[0],town2:tw[1],job:jb[0],job2:jb[1],kin:pick(KIN),pet:pick(['dog','cat']),petn:pick(PETN),spell:nm.split('').join('-'),spell2:a.join('-')};
+ return {role,g,hg,fem,eyes,mouth,tg,arms,v,sg,n:nm,st,plea:role?pick(role.plea):pick(PLEAS),qs:['want',...shuf(Object.keys(Q).filter(k=>k!=='want'))],cs:shuf(['teeth','hands','turn']),asked:{},pitch:fem?1.1+Math.random()*.3:.7+Math.random()*.3,rate:.9+Math.random()*.2,vi:Math.random()*9|0,tz:-2.1,nextBlink:2,blinkEnd:0,nerv:!v&&Math.random()<.3,breathT:0,chk:null}}
+function nextKnock(){if(S.state!=='play')return;if(S.i>=S.count)return endNight();const v=Math.random()<.5;const e=(S.ev||[]).find(x=>x.at===S.i&&!x.done);if(e)e.done=1;const p=e?makeSpecial(e.k):makePerson(v,takeSigns(),nextRole());p.g.position.set(0,0,-7);scene.add(p.g);P=p;S.p=p;if(S.peep){p.said=1;later(()=>{if(S.p===p&&p.knocked&&!S.busy)talk(p,p.plea)},2800)}}
+function ask(p,q,key){if(p.pend||p.chk||S.tk)return;p.pend=1;if(key)p.asked[key]=1;$('sub').textContent='You: “'+q+'”';show($('bub'),'<b>'+p.n+'</b><br>…');renderHud();aiAns(p,q,key).then(a=>{p.pend=0;if(S.p===p&&!S.busy)talk(p,a)})}
+async function aiAns(p,q,key){if(SMP){try{const s=p.st,h=(p.hist||[]).map(x=>'Q: '+x[0]+'\nA: '+x[1]).join('\n'),r=await SMP('You are role-playing a character at the door of a house in a horror story where Visitors (creatures that imitate humans) roam at night. Reply with ONLY the spoken line: 1-2 short sentences, no quotation marks, no stage directions.\nCharacter: '+p.n+', a '+(p.fem?'woman':'man')+' who is a '+s.job+' from '+s.town+'. Facts: family member '+s.kin+', pet '+s.pet+' named '+s.petn+'. Reason for coming to the door: '+s.want+'. Role: '+(p.role?p.role.k:'traveler')+'.\n'+(p.v?'SECRET: you are a Visitor imitating a human. Stay in character as a frightened person, but let small uncanny slips show now and then (a detail that contradicts your facts, an odd literal answer, being strangely calm). Never admit it.':'You are an ordinary frightened human survivor. Answer naturally and consistently with your facts; you may be tense or evasive about painful things.')+'\nConversation so far:\n'+(h||'(none)')+'\nThe person inside asks: '+q+'\nYour reply:',{modelTier:'quick',cache:false});const a=(r.text||'').replace(/^["“\s]+|["”\s]+$/g,'');if(a){(p.hist=p.hist||[]).push([q,a]);return a}}catch(e){}}
+ const k=key&&Q[key]?key:pick(Object.keys(Q));return fill(p,pick(p.v&&Math.random()<.6?Q[k].v:Q[k].h))}
+function openTyp(){const p=S.p;if(!p||p.kind||S.busy||!p.knocked||p.pend||p.chk||S.tk)return;$('typ').classList.add('on');$('ti').focus()}
+function closeTyp(){$('typ').classList.remove('on');$('ti').blur()}
+function check(p,a){if(p.chk||p.pend||S.tk)return;p.asked[a]=1;p.chk={a,t:0};talk(p,pick(CHK[a][p.v?'v':'h']))}
+function makeSpecial(k){const p=makePerson(false,[]);p.kind=k;p.fem=false;
+ if(k==='ent'){p.n='Something';p.plea='Are there people inside?';p.v=true;p.sg=['blink'];p.g.traverse(o=>{if(o.isMesh){o.material=M(0x050505,1);o.castShadow=false}});p.hg.children[0].material=M(0xdcdcdc,.5);p.eyes.forEach(e=>{e.material=new THREE.MeshBasicMaterial({color:0xffffff});e.scale.setScalar(1.8)});p.mouth.visible=false;p.g.scale.y=1.35;p.arms.forEach(a=>a.scale.y=1.9)}
+ else{p.n='Inspector';p.plea='Hazmat inspection. We need to check one person in your house.';p.g.traverse(o=>{if(o.isMesh)o.material=M(0xd8b820,.6)});const vz=new THREE.Mesh(new THREE.BoxGeometry(.3,.14,.06),M(0x111a22,.2));vz.position.set(0,.25,.2);p.hg.add(vz);p.hg.scale.setScalar(1.15);p.eyes.forEach(e=>e.visible=false);p.mouth.visible=false}
+ return p}
+function special(p,c){if(!c)return;S.busy=1;const leave=()=>anim('leave',()=>{scene.remove(p.g);P=null;S.p=null;after(true)});
+ if(p.kind==='ent'){if(c===1)talk(p,pick(['You are lucky.','Lucky. You are lucky.','Then you are lucky. For now.']),leave);else talk(p,pick(['Liar.','Then no one will hear you.','Good.']),()=>kill(false))}
+ else if(c===2)talk(p,'Understood. Be careful.',leave);
+ else if(!G.length)talk(p,'There is nobody inside to check. Stay safe.',leave);
+ else talk(p,'Thank you. This will be quick.',()=>{if(S.peep){const gu=pick(G);scene.remove(p.g);scene.remove(gu.g);G=G.filter(x=>x!==gu);P=null;S.p=null;after(true);return}peep(false);const gu=pick(G);gu.frozen=1;const g0={x:gu.g.position.x,z:gu.g.position.z};anim('haz',()=>{scene.remove(p.g);scene.remove(gu.g);G=G.filter(x=>x!==gu);P=null;S.p=null;after(true)});AN.gu=gu;AN.g0=g0})}
+function decide(letIn){const p=S.p;if(!p||S.busy)return;S.busy=1;letIn?S.in++:S.out++;if(letIn&&!p.v&&p.role&&p.role.k==='trader')S.sup=(S.sup||0)+1;if(letIn&&!p.v&&p.role&&p.role.k==='doctor'&&S.strikes>0){S.strikes--;topbar()}
+ if(letIn)talk(p,L(p,'yes'),()=>{if(p.v)kill(false);else if(S.peep){p.g.position.set(.7,0,2.4);p.g.rotation.set(0,0,0);addGuest(p);P=null;S.p=null;after()}else{peep(false);anim('enter',()=>{addGuest(p);P=null;S.p=null;after()})}});
+ else{if(!p.v)S.strikes++;topbar();talk(p,L(p,'no'),()=>anim('leave',()=>{scene.remove(p.g);P=null;S.p=null;if(S.strikes>=3)return kill(true);after()}))}}
+function after(ni){if(!ni)S.i++;S.busy=0;later(nextKnock,4000+Math.random()*2500)}
+// guests wander the house after being let in
+const SPOTS=[
+{x:2.7,z:4.2,a:'sit',ry:Math.PI/2,y:-.28,r:[{x:3.7,z:4.2},{x:3.7,z:6.8},{x:0,z:6.8}]},
+{x:2.7,z:5.8,a:'sit',ry:Math.PI/2,y:-.28,r:[{x:3.7,z:5.8},{x:3.7,z:6.8},{x:0,z:6.8}]},
+{x:4.3,z:5,a:'warm',ry:Math.PI/2,y:0,r:[{x:4.3,z:6.8},{x:0,z:6.8}]},
+{x:-3.2,z:5.2,a:'sit',ry:Math.PI/2,y:-.28,r:[{x:-2.2,z:5.2},{x:0,z:5.2}]},
+{x:5,z:10,a:'read',ry:Math.PI/2,y:0,r:[{x:4.5,z:10},{x:4.5,z:11.9},{x:0,z:11.9}]},
+{x:-4.6,z:11.2,a:'sit',ry:Math.PI,y:-.1,r:[{x:-2.8,z:11.2},{x:0,z:11.2}]},
+{x:1.9,z:9.2,a:'sit',ry:0,y:-.28,r:[{x:0,z:9.2}]},
+{x:-1.9,z:1.6,a:'listen',ry:-Math.PI/2,y:0,r:[{x:0,z:1.6}]}];
+const route=(A,B)=>[...(A?A.r:[{x:0,z:2.4}]),{x:0,z:B.r[B.r.length-1].z},...B.r.slice(0,-1).reverse(),{x:B.x,z:B.z}];
+function addGuest(p){p.spot=pick(SPOTS);p.path=route(null,p.spot);p.moving=true;p.wait=0;p.chk=null;G.push(p)}
+function stepGuests(dt,t){G.forEach(p=>{if(p.frozen)return;const g=p.g;if(p.moving){const w=p.path[0],dx=w.x-g.position.x,dz=w.z-g.position.z,d=Math.hypot(dx,dz);if(d<.1){p.path.shift();if(!p.path.length){p.moving=false;p.wait=6+Math.random()*8;const s=p.spot;g.rotation.y=s.ry;g.position.y=s.y;p.arms.forEach(a=>a.rotation.x=s.a==='warm'?-1.3:s.a==='read'?-.9:0)}}else{g.position.x+=dx/d*1.1*dt;g.position.z+=dz/d*1.1*dt;g.rotation.y=Math.atan2(dx,dz);g.position.y=Math.abs(Math.sin(t*6))*.03;p.arms.forEach(a=>a.rotation.x=0)}}else{p.wait-=dt;if(p.wait<=0){const A=p.spot,B=pick(SPOTS.filter(q=>q!==A));p.path=route(A,B);p.spot=B;p.moving=true;g.position.y=0}}})}
+// ---------- animations (door person leaving, entering, killing)
+function anim(type,done){AN={type,t:0,done,z0:P?P.g.position.z:-3};if(type==='enter')snd(70,45,1,.25,'sawtooth')}
+function stepAnim(dt){if(!AN)return;const a=AN;a.t+=dt;const T=a.t,g=P&&P.g;
+ if(a.type==='leave'&&g){g.rotation.y=Math.min(Math.PI,T*4);if(T>.8)g.position.z-=dt*(P.v?2.4:1.5);const z=g.position.z;g.position.y=z>-4.9?.2:z>-5.4?.1:0;if(T>3.4){AN=null;a.done()}}
+ else if(a.type==='enter'&&g){const o=T<3.2?ease(T):1-ease((T-3.2)/.8);dg.rotation.y=-1.4*o;if(T>1){const s=Math.min(1,(T-1)/2.4),z=a.z0+s*(2.4-a.z0);g.position.set(Math.min(1.1,Math.max(0,z+.2)*.5),z>-.7?0:.2,z);g.rotation.y=0}if(T>4.1){dg.rotation.y=0;AN=null;a.done()}}
+ else if(a.type==='haz'&&g){const gu=a.gu.g,o=T<8.6?ease(T):1-ease((T-8.6)/.8);dg.rotation.y=-1.4*o;const fx=z=>Math.min(1.1,Math.max(0,z+.2)*.5);
+  if(T>1.2&&T<3.6){const z=a.z0+(T-1.2)/2.4*(2.5-a.z0);g.position.set(fx(z),z>-.7?0:.2,z);g.rotation.y=0}
+  else if(T>=3.6&&T<5.2){const s=ease((T-3.6)/1.6);gu.position.x=a.g0.x+(1.7-a.g0.x)*s;gu.position.z=a.g0.z+(2.5-a.g0.z)*s;gu.rotation.y=Math.PI}
+  else if(T>=5.2){const z=2.5-clamp((T-5.2)/4,0,1)*7.3,zz=z+1.2;g.position.set(fx(z),z>-.7?0:.2,z);g.rotation.y=Math.PI;gu.position.set(fx(zz),zz>-.7?0:.2,zz);gu.rotation.y=Math.PI}
+  if(T>9.6){dg.rotation.y=0;AN=null;a.done()}}
+ else if(a.type==='kill'){dg.rotation.y=-1.4*ease(T/1.2);if(!a.c){a.c=1;snd(70,45,1.1,.3,'sawtooth')}cam.position.lerp(new THREE.Vector3(0,1.6,.45),Math.min(1,dt*6));yaw*=.9;pitch*=.9;
+  (a.mob?EX:[P]).forEach((q,i)=>{if(!q)return;const s=Math.min(1,Math.max(0,(T-1.2-i*.12)/1.5)),z=q.z0+s*s*(.3-q.z0);q.g.position.set(q.x0*(1-.85*s),z>-.7?0:.2,z);q.g.rotation.y=0});
+  const k=Math.min(1,Math.max(0,(T-2)/.7));cam.fov+=(60+24*k-cam.fov)*Math.min(1,dt*6);cam.updateProjectionMatrix();cam.position.x+=(Math.random()-.5)*.06*k;
+  if(T>2.75&&!a.f){a.f=1;flash('#7a0000',1);deathSnd()}if(T>2.95&&!a.b){a.b=1;$('fade').style.background='#000'}
+  if(T>4&&!a.e){a.e=1;showScr('<h1>Game over</h1><p class="mut">'+statsText()+'</p><button class="pri" data-a="again">Try again <b>(Space)</b></button>')}}}
+function kill(mob){speechSynthesis&&speechSynthesis.cancel();S.busy=1;S.state='dead';$('hud').innerHTML='';EX=[];
+ if(mob){if(P){scene.remove(P.g);P=null}EX=[-1.4,-.5,.5,1.4].map((x,i)=>{const q=makePerson(true,['tilt']);q.x0=x*.6;q.z0=-4-i*.3;q.g.position.set(q.x0,.2,q.z0);scene.add(q.g);return q})}else if(P){P.x0=0;P.z0=P.g.position.z}
+ peep(false);S.tw=null;door.visible=true;AN={type:'kill',t:0,mob}}
+function peep(on){if(on&&!near())return;const was=S.peep;S.peep=on;document.body.classList.toggle('peep',on);if(on)door.visible=false;S.tw={t:0,from:cam.position.clone(),to:new THREE.Vector3(0,1.6,on?-.6:.45),f0:cam.fov,f1:on?95:60};if(on){const p=S.p;if(p&&p.knocked&&!p.said&&!S.busy){p.said=1;talk(p,p.plea)}}yaw=0;pitch=0}
+// ---------- game flow
+function resetWorld(){radioStatic(false);AN=null;S.tw=null;$('pop').className='';$('typ').classList.remove('on');[P,...EX,...G].forEach(q=>q&&scene.remove(q.g));P=null;EX=[];G=[];dg.rotation.y=0;door.visible=true;document.body.classList.remove('peep');flash('#000',0);cam.fov=60;cam.updateProjectionMatrix();cam.position.set(0,1.6,.45);yaw=0;pitch=0;$('sub').textContent='';show($('bub'),'');show($('rb'),'')}
+function newGame(){resetWorld();S={state:'morning',night:0,strikes:0,busy:0,in:0,out:0};hideScreen();lock();popup('NIGHT 1',2400,startNight)}
+const INTRO=['Three weeks ago, the sky over the valley turned the color of old milk.','Something came down with it. The Visitors. They look like us. Almost.','The town went quiet, one door at a time.','You boarded up what you could and kept the radio on. Every night, they knock.','Let the right ones in. Keep the others out. Survive until the all clear.'];
+function intro(i){if(i>=INTRO.length)return newGame();S.ip=i;showScr('<p style="max-width:460px;font-size:21px;line-height:1.55;margin:0 auto">'+INTRO[i]+'</p><button class="pri" data-a="in">Next <b>(Space)</b></button> <button data-a="skip">Skip <b>(K)</b></button>')}
+function popup(t,ms,cb){const e=$('pop');e.textContent=t;e.className='on';const c=S;setTimeout(()=>{if(S!==c)return;cb&&cb();if(e.textContent===t)e.className=''},ms)}
+const statsText=()=>'Night '+Math.min((S.night||0)+1,5)+' · Let in '+(S.in||0)+' · Turned away '+(S.out||0)+(S.sup?' · Supplies '+S.sup:'');
+function takeSigns(){const n=Math.random()<.4?2:1,o=[];while(o.length<n){if(!S.bag.length)S.bag=shuf(S.sigs.filter(x=>x!=='voice'||Math.random()<.5));const x=S.bag.pop();if(!o.includes(x))o.push(x)}return o}
+function finale(){S.state='radio';cam.position.set(0,1.6,.8);yaw=1.84;pitch=0;radioSay(['This is the emergency broadcast.','The Visitors have been driven from the valley.','It is safe outside. It is safe.','You can open your door.'],0,()=>showScr('<h1>You survived</h1><p class="mut">'+statsText()+'</p><button class="pri" data-a="again">Play again <b>(Space)</b></button>'))}
+function startNight(){const n=S.night,prev=NS[n-1]||[];S.i=0;S.count=[3,4,4,5,5][n];S.sigs=NS[n];S.bag=[...shuf(prev),...shuf(NS[n].filter(x=>!prev.includes(x)))];S.ev=[];const ix=shuf([1,2,3,4].filter(k=>k<S.count));if(n>=1&&Math.random()<.7&&ix.length)S.ev.push({k:'ent',at:ix.pop()});if(n>=1&&Math.random()<.85&&ix.length)S.ev.push({k:'haz',at:ix.pop()});S.state='radio';S.p=null;S.busy=0;G.forEach(q=>scene.remove(q.g));G=[];hideScreen();topbar();cam.position.set(0,1.6,.8);yaw=1.84;pitch=0;
+ const nw=NS[n].filter(x=>!prev.includes(x)),lines=['Night '+(n+1)+'. Stay inside.','New signs: '+nw.map(x=>SIGNS[x]).join('; ')+'.'];if(prev.length)lines.push('Still true: '+prev.map(x=>SIGNS[x]).join('; ')+'.');radioSay(lines,0)}
+let RN=null;
+function radioStatic(on){try{if(!on){if(RN){clearInterval(RN.iv);RN.s.stop();RN.g.disconnect();RN=null}return}if(RN||!voiceOn)return;const a=ac(),b=a.createBuffer(1,a.sampleRate*2,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=a.createBufferSource();s.buffer=b;s.loop=true;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=2200;f.Q.value=.7;const g=a.createGain();g.gain.value=.05;s.connect(f);f.connect(g);g.connect(a.destination);s.start();RN={s,g,iv:setInterval(()=>{g.gain.value=Math.random()<.15?.22:.03+Math.random()*.05},70)}}catch(e){}}
+function radioSay(l,i,fin){if(i===0){radioStatic(true);snd(1400,260,.5,.12,'sawtooth')}if(i>=l.length){radioStatic(false);snd(900,1400,.15,.1,'square');show($('rb'),'');$('sub').textContent='';if(fin)return fin();S.state='play';return later(nextKnock,3500)}$('sub').innerHTML='<b>Radio:</b> “'+l[i]+'”';show($('rb'),'📻 '+l[i]);speak(l[i],{pitch:.6,rate:.9,vi:0});later(()=>radioSay(l,i+1,fin),l[i].length*72+900)}
+function endNight(){S.state='morning';G.forEach(q=>scene.remove(q.g));G=[];S.night++;peep(false);if(S.night>=5)finale();else popup('DAWN',2200,()=>popup('NIGHT '+(S.night+1),2600,startNight))}
+function act(a){if(a==='peep'){peep(!S.peep);return}const p=S.p;if(!p||S.busy||!near()||!p.knocked)return;if(p.kind)return special(p,a==='q'?1:a==='c'?2:0);
+ if(a==='t')openTyp();else if(a==='q'){const k=p.qs.find(x=>!p.asked[x]);if(k)ask(p,Q[k].q,k)}else if(a==='c'){const k=p.cs.find(x=>!p.asked[x]);if(k)check(p,k)}else if(a==='open')decide(true);else if(a==='away')decide(false)}
+function renderHud(){let s='',a='';
+ if(S.state==='radio')s='<span class="mut">WASD walk · mouse look · M mute</span>';
+ else if(S.p&&S.p.knocked&&!S.busy&&S.state==='play'){if(!near())s='<span class="mut">Someone is knocking. Go to the door.</span>';else if(!S.peep)s='<button data-a="peep"><b>SPACE</b> Look through the peephole</button>';
+  else if(S.p.kind){const k=S.p.kind;s='<button data-a="q">'+(k==='ent'?'Yes, there are people inside':'Let him in')+' <b>(1)</b></button><button data-a="c">'+(k==='ent'?'No, nobody is here':'Refuse')+' <b>(2)</b></button>'}
+  else{const p=S.p,sp=S.tk||p.pend||p.chk,q=p.qs.find(k=>!p.asked[k]),c=p.cs.find(k=>!p.asked[k]);s='<button data-a="q" '+(q&&!sp?'':'disabled')+'>Ask: '+(q?Q[q].q:'nothing left')+' <b>(1)</b></button><button data-a="c" '+(c&&!sp?'':'disabled')+'>Ask to check: '+(c?({teeth:'their teeth',hands:'their hands',turn:'turning around'})[c]:'nothing left')+' <b>(2)</b></button><button data-a="t" '+(sp?'disabled':'')+'>Type your own question <b>(T)</b></button>';a='<button data-a="open">Open the door <b>(O)</b></button><button data-a="away">Send them away <b>(G)</b></button>'}}
+ $('hud').innerHTML=s;$('act').innerHTML=a}
+// ---------- input
+function lock(){try{const r=cv.requestPointerLock&&cv.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}
+const locked=()=>document.pointerLockElement===cv;
+cv.addEventListener('click',()=>{if(!locked())lock()});
+addEventListener('mousemove',e=>{if(!locked())return;yaw-=e.movementX*.0022;pitch=clamp(pitch-e.movementY*.0022,-1.4,1.4)});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(document.activeElement===$('ti')){if(k==='enter'){const v=$('ti').value.trim();$('ti').value='';closeTyp();if(v&&S.p&&!S.busy&&!S.p.kind)ask(S.p,v)}else if(k==='escape')closeTyp();return}keys[k]=1;if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();if(k===' ')e.preventDefault();
+ if(k==='m')return toggleVoice();
+ if(k==='t'&&S.state==='play'){e.preventDefault();return openTyp()}
+ if(k==='k'&&S.state==='menu'&&$('menu').classList.contains('on'))return newGame();
+ if(k===' '||k==='enter'){const b=document.querySelector('#menu.on button');if(b){b.click();return}if(S.state==='play'){if(S.peep)peep(false);else if(S.p&&S.p.knocked&&!S.busy&&near())peep(true)}return}
+ if(S.peep&&k==='s')return peep(false);
+ const m={'1':'q','2':'c',o:'open',g:'away'};if(m[k])act(m[k])});
+$('menu').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;if(a==='begin')intro(0);else if(a==='in')intro(S.ip+1);else if(a==='again'||a==='skip')newGame();else if(a==='next')startNight()});
+$('hud').addEventListener('click',e=>{const b=e.target.closest('button');if(b)act(b.dataset.a)});$('mute').addEventListener('click',toggleVoice);$('act').addEventListener('click',e=>{const b=e.target.closest('button');if(b)act(b.dataset.a)});
+// ---------- main loop
+const v3=new THREE.Vector3();
+function place(el,x,y,z){if(!el.dataset.on)return el.style.display='none';v3.set(x,y,z).project(cam);const vis=v3.z<1&&Math.abs(v3.x)<1.2&&Math.abs(v3.y)<1.2;el.style.display=vis?'block':'none';if(vis){el.style.left=clamp((v3.x*.5+.5)*innerWidth,8,innerWidth-250)+'px';el.style.top=Math.max(8,(-v3.y*.5+.5)*innerHeight-10)+'px'}}
+function puff(g){const m=new THREE.Mesh(new THREE.SphereGeometry(.07,8,8),new THREE.MeshBasicMaterial({color:0xcfd8e0,transparent:true,opacity:.5}));m.position.set(g.position.x,g.position.y+1.58,g.position.z+.25);m.scale.setScalar(.6);scene.add(m);puffs.push(m)}
+function frame(ms){requestAnimationFrame(frame);const t=ms/1000,dt=Math.min(t-t0,.05);t0=t;const pk=S.peep,K=AN&&AN.type==='kill';
+ const mv=(S.state==='play'||S.state==='radio')&&!pk&&!K&&!S.tw,f=mv?(keys.w?1:0)-(keys.s?1:0):0,r=mv?(keys.d?1:0)-(keys.a?1:0):0;
+ yaw+=((keys.arrowleft?1:0)-(keys.arrowright?1:0))*dt*1.8;pitch=clamp(pitch+((keys.arrowup?1:0)-(keys.arrowdown?1:0))*dt*1.5,-1.4,1.4);
+ if(mv){const nx=clamp(cam.position.x+(-Math.sin(yaw)*f+Math.cos(yaw)*r)*2.4*dt,-5.6,5.6),nz=clamp(cam.position.z+(-Math.cos(yaw)*f-Math.sin(yaw)*r)*2.4*dt,.3,12.6);if(!hit(nx,cam.position.z))cam.position.x=nx;if(!hit(cam.position.x,nz))cam.position.z=nz;cam.position.y=1.6+((f||r)?Math.sin(t*9)*.025:0)}
+ if(S.tw){const w=S.tw;w.t=Math.min(1,w.t+dt*3.2);const k=ease(w.t);cam.position.lerpVectors(w.from,w.to,k);cam.fov=w.f0+(w.f1-w.f0)*k;cam.updateProjectionMatrix();if(w.t>=1){S.tw=null;if(!S.peep)door.visible=true}}
+ if(pk){yaw=clamp(yaw,-.45,.45);pitch=clamp(pitch,-.7,.15)}
+ if(P&&!AN){const g=P.g,c=P.chk;g.position.z+=(P.tz-g.position.z)*Math.min(1,dt*1.4);if(!P.knocked&&Math.abs(g.position.z-P.tz)<.35){P.knocked=1;P.kind==='ent'?entKnock():knock()}g.position.y=g.position.z>-4.9?.2:g.position.z>-5.4?.1:0;const st=P.v&&P.sg.includes('still');g.rotation.z=st?0:Math.sin(t*1.3)*.03;g.position.x=st?0:Math.sin(t*.7)*.04;
+  if(!(P.v&&P.sg.includes('blink'))){if(t>P.nextBlink){P.blinkEnd=t+.14;P.nextBlink=t+(P.nerv?.7:3.4)+Math.random()*1.5}P.eyes.forEach(e=>e.scale.y=(t<P.blinkEnd?.1:1)*(P.v&&P.sg.includes('eyes')?1.7:1))}
+  P.breathT+=dt;if(P.breathT>1.8&&Math.abs(g.position.z-P.tz)<.3&&!(P.v&&P.sg.includes('breath'))){P.breathT=0;puff(g)}
+  if(c){c.t+=dt;if(c.a==='teeth'){P.mouth.scale.y=c.t<3?1+4*ease(c.t*4):1;P.tg.visible=c.t>.2&&c.t<3}else if(c.a==='hands'){const o=c.t<3?ease(c.t*2.5):1-ease((c.t-3)*2.5);P.arms.forEach(a=>a.rotation.x=-1.4*o)}if(c.a==='turn')g.rotation.y=ease(c.t/3)*Math.PI*2;if(c.t>3.5){g.rotation.y=0;P.mouth.scale.y=1;P.tg.visible=false;P.arms.forEach(a=>a.rotation.x=0);P.chk=null}}}
+ stepGuests(dt,t);stepAnim(dt);
+ const fk=P&&(P.kind==='ent'||(P.v&&P.sg.includes('flicker')))&&S.p===P&&!AN;
+ lamp.intensity=K?(AN.t>2.4?0:(Math.random()<.25?.15:1.8)):fk?(Math.random()<.5?.05:1.8):1.8*(Math.random()<.01?.3:1);L1.intensity=fk&&Math.random()<.5?.1:(Math.random()<.004?.2:.9);fire.intensity=1.1+Math.random()*.5;flames.forEach((c,i)=>{c.scale.y=.85+Math.sin(t*9+i*2)*.2+Math.random()*.1;c.scale.x=c.scale.z=.9+Math.sin(t*7+i)*.1});
+ puffs=puffs.filter(m=>{m.position.y+=dt*.25;m.position.z+=dt*.25;m.scale.multiplyScalar(1+dt*1.6);m.material.opacity-=dt*.28;if(m.material.opacity<=0){scene.remove(m);return false}return true});
+ if(pk&&P)place($('bub'),P.g.position.x+.4,P.g.position.y+1.95,P.g.position.z);else $('bub').style.display='none';place($('rb'),-2.6,1.45,1.5);
+ const hk=[S.state,!!S.p,!!(S.p&&S.p.knocked),S.busy,near(),!!pk,S.tk?1:0,S.p&&(S.p.pend||S.p.chk)?1:0,S.p?Object.keys(S.p.asked).join():''].join();if(hk!==S.hk){S.hk=hk;renderHud()}
+ const sk=S.shake||0;if(sk>0)S.shake=Math.max(0,sk-dt*.25);cam.rotation.set(pitch+(Math.random()-.5)*sk*2,yaw+(Math.random()-.5)*sk*2,0);R.render(scene,cam)}
+(async()=>{try{if(window.claude&&claude.use){SMP=await claude.use('sample');ROOM=await claude.use('room');if(ROOM){ROOM.onPeers(c=>{const b=$('board');b.textContent='';c.peers.filter(p=>!p.isMe&&p.presence&&p.presence.n).forEach(p=>{const d=document.createElement('div');d.textContent=String(p.presence.n).slice(0,20)+' · night '+((+p.presence.night||0)+1)+' · '+(p.presence.dead?'dead':'alive');b.appendChild(d)});});pres()}}}catch(e){}})();
+function pres(){try{if(ROOM)ROOM.presence({n:ME,night:S.night||0,dead:S.state==='dead'})}catch(e){}}
+showScr('<h1>Please Don’t Let Them In</h1><p class="mut">WASD walk · mouse look · SPACE peephole</p><button class="pri" data-a="begin">Begin <b>(Space)</b></button>');
+requestAnimationFrame(ms=>{t0=ms/1000;frame(ms)});
+</script></body></html>

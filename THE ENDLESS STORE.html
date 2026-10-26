@@ -217,14 +217,166 @@ cv.addEventListener('mousedown',e=>{if(e.button===0)md=true});addEventListener('
 cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top});
 cv.addEventListener('contextmenu',e=>{e.preventDefault();tryPlace()});
 $('go').onclick=()=>{$('st').style.display='none';started=true;toast('Find food and furniture before the siren!')};
-(async()=>{try{room=window.claude?await claude.use('room'):null}catch(e){room=null}
-$('mp').textContent=room?'Multiplayer on — everyone with this page open shares the same store.':'Solo mode (multiplayer unavailable here).';
-if(!room)return;isHost=false;t0=performance.now();room.presence({x:0,y:0,a:0,hp:100,w:'Fists'});
-room.on('s',m=>{if(m.isMe||m.kind!=='viewer')return;const my=room.peers().find(p=>p.isMe);
-if(isHost){if(my&&m.peer<my.peer)isHost=false;else return}lastS=performance.now();const d=m.data;nn=d.n;ph=d.p;tm=d.t;bl=d.k;if(d.x){for(const k in gone)delete gone[k];for(const id of d.x)gone[id]=1}
-const old=new Map(ZS.map(z=>[z.id,z]));ZS=d.z.map(([id,x,y,st])=>{let z=old.get(id)||{id,x,y,a:0};z.tx=x;z.ty=y;z.s=st;return z});
-B=d.b.map(([x,y,hp,k])=>({x,y,hp,k}))});
-room.on('hit',m=>{if(!isHost||m.isMe||!m.data)return;const d=m.data;if(d.d)hurt(d.id,+d.d);else shove(d.id,d.p>1?2:1,+d.x,+d.y)});
-room.on('place',m=>{if(isHost&&!m.isMe&&m.data)addBar(Math.floor(m.data.x/T)*T,Math.floor(m.data.y/T)*T,m.data.k)});
-room.on('pick',m=>{if(!isHost||m.isMe||!m.data)return;const d=m.data;if(typeof d.id==='string'){if(d.id.length<40&&Object.keys(gone).length<8000){gone[d.id]=1;gd=1}}else B=B.filter(b=>!(b.x===d.x&&b.y===d.y))})})();
+
+(async function connectMultiplayer(){
+  const status = $('mp');
+
+  try {
+    if (!window.supabase?.createClient) {
+      throw new Error('Supabase library did not load');
+    }
+
+    const client = window.supabase.createClient(
+      'https://sdecnzctpbybbwvgujpv.supabase.co',
+      'sb_publishable_bjMsWuFq_6iM7-Oy-JnHEg_4hNY67Yb'
+    );
+
+    const peer = 'p' + Math.random().toString(36).slice(2, 10)
+      + Date.now().toString(36);
+
+    const remotePlayers = new Map();
+    const handlers = new Map();
+    let channel;
+    let joined = false;
+    let localPresence = {
+      x: 0, y: 0, a: 0, hp: 100, w: 'Fists'
+    };
+
+    function fire(event, payload) {
+      if (!payload || !payload.peer || !payload.data) return;
+
+      const message = {
+        isMe: payload.peer === peer,
+        kind: 'viewer',
+        peer: payload.peer,
+        data: payload.data
+      };
+
+      for (const fn of handlers.get(event) || []) {
+        fn(message);
+      }
+    }
+
+    room = {
+      peers() {
+        const result = [{
+          isMe: true,
+          kind: 'viewer',
+          peer,
+          presence: localPresence
+        }];
+
+        for (const [id, presence] of remotePlayers) {
+          result.push({
+            isMe: false,
+            kind: 'viewer',
+            peer: id,
+            presence
+          });
+        }
+
+        return result;
+      },
+
+      presence(data) {
+        localPresence = { ...localPresence, ...data };
+
+        if (joined) {
+          channel.send({
+            type: 'broadcast',
+            event: 'pos',
+            payload: { peer, data: localPresence }
+          }).catch(console.error);
+        }
+      },
+
+      emit(event, data) {
+        if (joined) {
+          channel.send({
+            type: 'broadcast',
+            event,
+            payload: { peer, data }
+          }).catch(console.error);
+        }
+      },
+
+      on(event, callback) {
+        if (!handlers.has(event)) handlers.set(event, []);
+        handlers.get(event).push(callback);
+      }
+    };
+
+    channel = client.channel('endless-store-main', {
+      config: {
+        broadcast: { self: false },
+        presence: { key: peer }
+      }
+    });
+
+    channel.on('broadcast', { event: 'pos' }, ({ payload }) => {
+      if (payload?.peer && payload.peer !== peer && payload.data) {
+        remotePlayers.set(payload.peer, payload.data);
+      }
+    });
+
+    for (const event of ['s', 'hit', 'place', 'pick']) {
+      channel.on('broadcast', { event }, ({ payload }) => {
+        fire(event, payload);
+      });
+    }
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const active = new Set();
+
+      for (const [key, entries] of Object.entries(state)) {
+        for (const entry of entries) {
+          const id = entry.peer || key;
+
+          if (id !== peer) {
+            active.add(id);
+            if (entry.presence) {
+              remotePlayers.set(id, entry.presence);
+            }
+          }
+        }
+      }
+
+      for (const id of remotePlayers.keys()) {
+        if (!active.has(id)) remotePlayers.delete(id);
+      }
+    });
+
+    channel.subscribe(async state => {
+      if (state === 'SUBSCRIBED') {
+        joined = true;
+
+        await channel.track({
+          peer,
+          presence: localPresence
+        });
+
+        status.textContent =
+          'Multiplayer connected — share this page with friends!';
+
+        toast('Multiplayer connected');
+      } else if (
+        state === 'CHANNEL_ERROR' ||
+        state === 'TIMED_OUT' ||
+        state === 'CLOSED'
+      ) {
+        status.textContent =
+          'Multiplayer connection failed — check Supabase Realtime settings.';
+        console.error('Supabase channel status:', state);
+      }
+    });
+
+  } catch (error) {
+    room = null;
+    isHost = true;
+    status.textContent = 'Solo mode — multiplayer failed to connect.';
+    console.error('Multiplayer error:', error);
+  }
+})();
+
 </script></body></html>

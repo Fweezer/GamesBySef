@@ -27,6 +27,7 @@ button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:10px 2
 <p>You wake up inside an impossible furniture store that never ends. By day the faceless employees wander harmlessly. When the siren sounds you have thirty seconds before the lights die and they start to hunt.</p>
 <p>Employees can’t be killed and can’t move furniture — shove them back, and wall yourself in. Hunger and energy drain constantly, so stock food before dark. Every 10th night is a <b style="color:#ff5a5f">Blood Night</b>.</p>
 <p id="mp" style="opacity:.7">Connecting…</p><button id="go">ENTER THE STORE</button></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const T=40,CH=800,DAY=120,NIGHT=300,SIREN=30,$=id=>document.getElementById(id),cv=$('c'),g=cv.getContext('2d');
 const IT={wood:{n:'Wood planks',hp:110,c:'#a0702a',i:'🪵'},metal:{n:'Scrap metal',hp:300,c:'#7a8794',i:'⚙️'},cart:{n:'Shopping cart',hp:70,c:'#8a9aa8',i:'🛒',low:1},crate:{n:'Crate',hp:150,c:'#9c7a45',i:'📦'},freezer:{n:'Freezer',hp:500,c:'#9cc4d8',i:'🧊'},sofa:{n:'Sofa',hp:190,c:'#8a4a5a',i:'🛋️'},mattress:{n:'Mattress',hp:90,c:'#c9c2a8',i:'🛏️',low:1},table:{n:'Table',hp:140,c:'#7b5a3a',i:'🪑',low:1},wardrobe:{n:'Wardrobe',hp:280,c:'#5b3d28',i:'🚪'},sandbag:{n:'Sandbags',hp:240,c:'#b0a070',i:'🎒'},tire:{n:'Tire stack',hp:200,c:'#2a2a2a',i:'🛞',low:1},barrel:{n:'Oil barrel',hp:320,c:'#8c3a2a',i:'🛢️'},fence:{n:'Fence panel',hp:170,c:'#6a8a6a',i:'🚧'},gym:{n:'Gym equipment',hp:300,c:'#555e6b',i:'🏋️'},
